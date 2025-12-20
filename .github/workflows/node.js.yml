@@ -1,1 +1,95 @@
-// h
+name: Биллинг на апк
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+    permissions:
+      contents: write  # нужно для создания релиза
+
+    steps:
+      - name: Обновление пакетов и установка зависимостей
+        run: |
+          apt-get update
+          apt-get install -y --fix-missing curl git openjdk-17-jdk unzip zip gradle jq
+
+      - name: Установка Node.js
+        run: |
+          curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+          apt-get install -y nodejs
+
+      - name: Клонирование репозитория
+        uses: actions/checkout@v4
+
+      - name: Установка npm-зависимостей
+        run: |
+          npm install -g npm@11
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Установка Capacitor CLI
+        run: npm install @capacitor/cli @capacitor/core --save-dev
+
+      - name: Инициализация Android проекта
+        run: |
+          npx cap add android || echo "Android проект уже добавлен"
+          npx cap sync android
+
+      - name: Установка Android SDK (cmdline-tools)
+        run: |
+          mkdir -p $HOME/Android/cmdline-tools
+          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip commandlinetools.zip -d $HOME/Android/cmdline-tools
+          yes | $HOME/Android/cmdline-tools/cmdline-tools/bin/sdkmanager --licenses
+          $HOME/Android/cmdline-tools/cmdline-tools/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Декодирование keystore
+        run: |
+          mkdir -p android/app
+          base64 -d android/app/release.keystore > android/app/release.keystore.decoded
+
+      - name: Автоинкремент версии
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          PATCH=$((PATCH+1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          jq --arg ver "$NEW_VERSION" '.version=$ver' package.json > package.tmp.json
+          mv package.tmp.json package.json
+          echo "Новая версия: $NEW_VERSION"
+
+      - name: Обновление minSdkVersion и targetSdkVersion в Gradle
+        run: |
+          sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle
+          sed -i 's/targetSdkVersion .*/targetSdkVersion 36/' android/app/build.gradle
+
+      - name: Сборка и подпись APK
+        run: |
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=app/release.keystore.decoded \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+          mkdir -p ../dist
+          cp app/build/outputs/apk/release/app-release.apk ../dist/
+
+      - name: Загрузка артефакта
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: dist/app-release.apk
+
+      - name: Создание GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
