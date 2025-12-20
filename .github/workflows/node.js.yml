@@ -27,7 +27,7 @@ jobs:
       - run: |
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
           sudo apt-get install -y nodejs
-          npm install -g npm@11
+          sudo npm install -g npm@11
 
       - run: |
           if [ -f package-lock.json ]; then
