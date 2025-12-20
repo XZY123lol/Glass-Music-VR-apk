@@ -6,8 +6,6 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    container:
-      image: debian:bookworm
     permissions:
       contents: write
 
