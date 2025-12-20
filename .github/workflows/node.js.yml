@@ -15,7 +15,7 @@ jobs:
       - name: Обновление пакетов и установка зависимостей
         run: |
           apt-get update
-          apt-get install -y --fix-missing curl git openjdk-17-jdk unzip zip gradle jq
+          apt-get install -y --fix-missing curl git openjdk-20-jdk unzip zip gradle jq
 
       - name: Установка Node.js
         run: |
