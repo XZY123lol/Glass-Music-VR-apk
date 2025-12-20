@@ -23,7 +23,7 @@ jobs:
       - name: Установка системных зависимостей
         run: |
           apt-get update
-          apt-get install -y wget unzip curl git
+          apt-get install -y wget unzip curl git tar
 
       - name: Установка JDK 21
         run: |
