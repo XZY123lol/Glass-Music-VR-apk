@@ -1,4 +1,4 @@
-name: Биллинг на апк
+name: Биллинг на APK
 
 on:
   workflow_dispatch:
@@ -12,35 +12,18 @@ jobs:
       contents: write
 
     steps:
-      - name: Обновление пакетов и установка зависимостей
+      - name: Checkout репозитория
+        uses: actions/checkout@v4
+
+      - name: Установка системных зависимостей
         run: |
           apt-get update
-          apt-get install -y --fix-missing curl git openjdk-17-jdk unzip zip gradle jq
-
-      - name: Создание минимального web (заглушка)
-  run: |
-    mkdir -p www
-    cat > www/index.html << 'EOF'
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Glass Music VR</title>
-      </head>
-      <body>
-        <h1>Glass Music VR</h1>
-      </body>
-    </html>
-    EOF
-
+          apt-get install -y curl git openjdk-17-jdk unzip zip gradle jq
 
       - name: Установка Node.js
         run: |
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
           apt-get install -y nodejs
-
-      - name: Клонирование репозитория
-        uses: actions/checkout@v4
 
       - name: Установка npm-зависимостей
         run: |
@@ -51,60 +34,64 @@ jobs:
             npm install
           fi
 
-      - name: Установка Capacitor CLI
-        run: npm install @capacitor/cli @capacitor/core --save-dev
-
-      - name: Инициализация Android проекта
+      - name: Создание минимального web (заглушка)
         run: |
-          npx cap add android || echo "Android проект уже добавлен"
+          mkdir -p www
+          cat > www/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <meta charset="utf-8" />
+              <title>Glass Music VR</title>
+            </head>
+            <body></body>
+          </html>
+          EOF
+
+      - name: Установка Capacitor
+        run: npm install @capacitor/core @capacitor/cli --save-dev
+
+      - name: Sync Android
+        run: |
+          npx cap add android || echo "Android уже существует"
           npx cap sync android
 
-      - name: Установка Android SDK (cmdline-tools)
+      - name: Установка Android SDK
+        env:
+          ANDROID_HOME: /opt/android-sdk
         run: |
-          mkdir -p $HOME/Android/cmdline-tools
-          curl -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip commandlinetools.zip -d $HOME/Android/cmdline-tools
-          yes | $HOME/Android/cmdline-tools/cmdline-tools/bin/sdkmanager --licenses
-          $HOME/Android/cmdline-tools/cmdline-tools/bin/sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
-
-      - name: Декодирование keystore
-        run: |
-          mkdir -p android/app
-          base64 -d android/app/release.keystore > android/app/release.keystore.decoded
-
-      - name: Автоинкремент версии
-        run: |
-          VERSION=$(jq -r '.version' package.json)
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          PATCH=$((PATCH+1))
-          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          jq --arg ver "$NEW_VERSION" '.version=$ver' package.json > package.tmp.json
-          mv package.tmp.json package.json
-          echo "Новая версия: $NEW_VERSION"
-
-      - name: Обновление minSdkVersion и targetSdkVersion в Gradle
-        run: |
-          sed -i 's/minSdkVersion .*/minSdkVersion 23/' android/app/build.gradle
-          sed -i 's/targetSdkVersion .*/targetSdkVersion 36/' android/app/build.gradle
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          cd $ANDROID_HOME/cmdline-tools
+          curl -o tools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip tools.zip
+          mv cmdline-tools latest
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
 
       - name: Сборка и подпись APK
+        env:
+          ANDROID_HOME: /opt/android-sdk
         run: |
           cd android
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=app/release.keystore.decoded \
+            -Pandroid.injected.signing.store.file=app/release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
           mkdir -p ../dist
           cp app/build/outputs/apk/release/app-release.apk ../dist/
 
-      - name: Загрузка артефакта
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: dist/app-release.apk
 
-      - name: Создание GitHub Release
+      - name: GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: dist/app-release.apk
