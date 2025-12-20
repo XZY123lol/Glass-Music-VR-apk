@@ -30,9 +30,7 @@ jobs:
           echo "$HOME/jdk21/bin" >> $GITHUB_PATH
 
       - name: Проверка Java
-        run: export JAVA_HOME=$HOME/jdk21
-    export PATH=$JAVA_HOME/bin:$PATH
-    java -version
+        run: java -version
 
       - name: Установка Node.js
         run: |
