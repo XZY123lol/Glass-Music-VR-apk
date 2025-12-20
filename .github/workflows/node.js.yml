@@ -26,11 +26,13 @@ jobs:
           curl -L "https://eclipse.mirror.garr.it/temurin-compliance/temurin/21/jdk-21.0.9+10/OpenJDK21U-jdk_x64_linux_hotspot_21.0.9_10.tar.gz" -o /tmp/jdk21.tar.gz
           mkdir -p $HOME/jdk21
           tar -xzf /tmp/jdk21.tar.gz -C $HOME/jdk21 --strip-components=1
-          echo "export JAVA_HOME=$HOME/jdk21" >> $GITHUB_ENV
-          echo "export PATH=$HOME/jdk21/bin:$PATH" >> $GITHUB_ENV
+          echo "JAVA_HOME=$HOME/jdk21" >> $GITHUB_ENV
+          echo "$HOME/jdk21/bin" >> $GITHUB_PATH
 
       - name: Проверка Java
-        run: java -version
+        run: export JAVA_HOME=$HOME/jdk21
+    export PATH=$JAVA_HOME/bin:$PATH
+    java -version
 
       - name: Установка Node.js
         run: |
