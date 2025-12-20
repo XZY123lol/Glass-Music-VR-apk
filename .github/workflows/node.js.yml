@@ -27,7 +27,7 @@ jobs:
       - run: |
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
           sudo apt-get install -y nodejs
-          sudo npm install -g npm@11
+          sudo npm install -g npm@11 --unsafe-perm=true
 
       - run: |
           if [ -f package-lock.json ]; then
@@ -80,6 +80,7 @@ jobs:
 
       - run: |
           cd android
+          chmod +x gradlew
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=app/release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
