@@ -1,3 +1,6 @@
 {
-  "webDir": "www"
+  "appId": "com.Glass.Music",
+  "appName": "Glass Music",
+  "webDir": "www",
+  "bundledWebRuntime": false
 }
