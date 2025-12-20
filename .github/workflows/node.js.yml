@@ -1,4 +1,4 @@
-name: Билдинг на APK
+name: Биллинг на APK
 
 on:
   workflow_dispatch:
@@ -8,7 +8,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:bookworm
-
     permissions:
       contents: write
 
@@ -19,20 +18,7 @@ jobs:
       - name: Установка системных зависимостей
         run: |
           apt-get update
-          apt-get install -y curl git unzip zip jq
-
-      - name: Установка OpenJDK 21 (Temurin)
-        run: |
-          curl -L "https://eclipse.mirror.garr.it/temurin-compliance/temurin/21/jdk-21.0.9+10/OpenJDK21U-jdk_x64_linux_hotspot_21.0.9_10.tar.gz" -o /tmp/jdk21.tar.gz
-          mkdir -p $HOME/jdk21
-          tar -xzf /tmp/jdk21.tar.gz -C $HOME/jdk21 --strip-components=1
-          echo "JAVA_HOME=$HOME/jdk21" >> $GITHUB_ENV
-          echo "$HOME/jdk21/bin" >> $GITHUB_PATH
-
-      - name: Проверка Java
-        run: |
-          echo $JAVA_HOME
-          java -version
+          apt-get install -y curl git openjdk-17-jdk unzip zip jq
 
       - name: Установка Node.js
         run: |
@@ -102,8 +88,6 @@ jobs:
       - name: Сборка и подпись APK
         env:
           ANDROID_HOME: /opt/android-sdk
-          JAVA_HOME: ${{ env.HOME }}/jdk21
-          PATH: ${{ env.HOME }}/jdk21/bin:$PATH
         run: |
           cd android
           ./gradlew assembleRelease \
