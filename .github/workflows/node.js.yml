@@ -1,4 +1,4 @@
-name: Билдинг на APK
+name: Биллинг на APK
 
 on:
   workflow_dispatch:
@@ -6,37 +6,36 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    container:
+      image: debian:bookworm
     permissions:
       contents: write
 
-    env:
-      ANDROID_HOME: /opt/android-sdk
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout репозитория
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v3
-        with:
-          distribution: temurin
-          java-version: 21
+      - name: Установка системных зависимостей
+        run: |
+          apt-get update
+          apt-get install -y curl git openjdk-21-jdk unzip zip jq
 
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip curl git tar
-
-      - run: |
+      - name: Установка Node.js
+        run: |
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-          sudo apt-get install -y nodejs
-          sudo npm install -g npm@11 --unsafe-perm=true
+          apt-get install -y nodejs
 
-      - run: |
+      - name: Установка npm-зависимостей
+        run: |
+          npm install -g npm@11
           if [ -f package-lock.json ]; then
             npm ci
           else
             npm install
           fi
 
-      - run: |
+      - name: Создание минимального web (заглушка)
+        run: |
           mkdir -p www
           cat > www/index.html << 'EOF'
           <!DOCTYPE html>
@@ -49,20 +48,27 @@ jobs:
           </html>
           EOF
 
-      - run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
+      - name: Установка Capacitor
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
 
-      - run: |
+      - name: Инициализация Capacitor (если нет)
+        run: |
           if [ ! -f capacitor.config.json ]; then
-            npx cap init "Glass Music VR" "com.example.glassmusicvr"
+            npx cap init "Glass Music VR" "com.Glass.Music"
           fi
 
-      - run: |
-          if [ ! -d android ]; then
-            npx cap add android
+      - name: Создание/синхронизация Android
+        run: |
+          if [ -d android ]; then
+            rm -rf android
           fi
+          npx cap add android
           npx cap sync android
 
-      - run: |
+      - name: Установка Android SDK
+        env:
+          ANDROID_HOME: /opt/android-sdk
+        run: |
           mkdir -p $ANDROID_HOME/cmdline-tools
           cd $ANDROID_HOME/cmdline-tools
           curl -o tools.zip https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
@@ -74,27 +80,33 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
-      - run: |
+      - name: Декодирование keystore из Secrets
+        run: |
           mkdir -p android/app
           echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
 
-      - run: |
+      - name: Сборка и подпись APK
+        env:
+          ANDROID_HOME: /opt/android-sdk
+        run: |
           cd android
-          chmod +x gradlew
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=app/release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
           mkdir -p ../dist
           cp app/build/outputs/apk/release/app-release.apk ../dist/
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: dist/app-release.apk
 
-      - uses: softprops/action-gh-release@v1
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
           files: dist/app-release.apk
         env:
