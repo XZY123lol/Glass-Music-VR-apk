@@ -49,7 +49,7 @@ jobs:
           EOF
 
       - name: Установка Capacitor
-        run: npm install @capacitor/core @capacitor/cli --save-dev
+        run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
 
       - name: Sync Android
         run: |
