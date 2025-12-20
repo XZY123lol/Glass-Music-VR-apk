@@ -81,9 +81,8 @@ jobs:
             "build-tools;36.0.0"
 
       - name: Декодирование keystore
-        run: |
-          mkdir -p android/app
-          base64 -d android/app/release.keystore > android/app/release.keystore.decoded
+        mkdir -p android/app
+    echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
 
       - name: Сборка и подпись APK
         env:
