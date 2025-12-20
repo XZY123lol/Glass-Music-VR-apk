@@ -51,6 +51,12 @@ jobs:
       - name: Установка Capacitor
         run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
 
+      - name: Инициализация Capacitor (если нет)
+        run: |
+          if [ ! -f capacitor.config.json ]; then
+            npx cap init "Glass Music VR" "com.example.glassmusicvr"
+          fi
+
       - name: Создание/синхронизация Android
         run: |
           if [ -d android ]; then
