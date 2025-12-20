@@ -17,6 +17,23 @@ jobs:
           apt-get update
           apt-get install -y --fix-missing curl git openjdk-17-jdk unzip zip gradle jq
 
+      - name: Создание минимального web (заглушка)
+  run: |
+    mkdir -p www
+    cat > www/index.html << 'EOF'
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Glass Music VR</title>
+      </head>
+      <body>
+        <h1>Glass Music VR</h1>
+      </body>
+    </html>
+    EOF
+
+
       - name: Установка Node.js
         run: |
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
