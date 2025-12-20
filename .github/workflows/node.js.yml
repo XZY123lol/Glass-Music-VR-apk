@@ -18,7 +18,7 @@ jobs:
       - name: Установка системных зависимостей
         run: |
           apt-get update
-          apt-get install -y curl git openjdk-17-jdk unzip zip gradle jq
+          apt-get install -y curl git openjdk-17-jdk unzip zip jq
 
       - name: Установка Node.js
         run: |
@@ -51,9 +51,12 @@ jobs:
       - name: Установка Capacitor
         run: npm install @capacitor/core @capacitor/cli @capacitor/android --save-dev
 
-      - name: Sync Android
+      - name: Создание/синхронизация Android
         run: |
-          npx cap add android || echo "Android уже существует"
+          if [ -d android ]; then
+            rm -rf android
+          fi
+          npx cap add android
           npx cap sync android
 
       - name: Установка Android SDK
@@ -71,13 +74,18 @@ jobs:
             "platforms;android-36" \
             "build-tools;36.0.0"
 
+      - name: Декодирование keystore
+        run: |
+          mkdir -p android/app
+          base64 -d android/app/release.keystore > android/app/release.keystore.decoded
+
       - name: Сборка и подпись APK
         env:
           ANDROID_HOME: /opt/android-sdk
         run: |
           cd android
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=app/release.keystore \
+            -Pandroid.injected.signing.store.file=app/release.keystore.decoded \
             -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
